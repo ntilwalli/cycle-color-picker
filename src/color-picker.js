@@ -1,5 +1,6 @@
 import xs from 'xstream';
 import dropRepeats from 'xstream/extra/droprepeats';
+import debounce from 'xstream/extra/debounce';
 import tinycolor from 'tinycolor2';
 import { div } from '@cycle/dom';
 
@@ -49,11 +50,12 @@ function setStateFromProps (props) {
 }
 
 export default function ColorPicker ({DOM, props$ = xs.empty()}) {
-  const initialState = {color: {h: 0, s: 0, v: 0, a: 0}};
+  const initialState = {color: {h: 0, s: 0, v: 0, a: 0}}
+  const initialState$ = xs.of(initialState);
 
-  const saturationValueComponent$ = SaturationValue({DOM, props$});
-  const hueComponent$ = Hue({DOM, props$});
-  const alphaComponent$ = Alpha({DOM, props$});
+  const saturationValueComponent$ = SaturationValue({DOM, props$: initialState$.map(x => ({color: {s: x.s, v: x.v}}))});
+  const hueComponent$ = Hue({DOM, props$: initialState$.map(x => ({color: {h: x.h}}))});
+  const alphaComponent$ = Alpha({DOM, props$: initialState$.map(x => ({color: {a: x.a}}))});
 
   const setStateFromProps$ = props$
     .map(setStateFromProps);
@@ -71,9 +73,9 @@ export default function ColorPicker ({DOM, props$ = xs.empty()}) {
     .map(saturationValue => ({s: saturationValue.saturation, v: saturationValue.value}));
 
   const colorParts$ = xs.merge(
-    saturationValue$,
-    hue$,
-    alpha$
+    saturationValue$.drop(1),
+    hue$.drop(1),
+    alpha$.drop(1)
   ).map(value => updateColor(value));
 
   const action$ = xs.merge(
@@ -94,7 +96,7 @@ export default function ColorPicker ({DOM, props$ = xs.empty()}) {
     saturationValueComponent$.DOM,
     hueComponent$.DOM,
     alphaComponent$.DOM
-  ).map(view);
+  ).compose(debounce(0)).map(view);
 
   return {
     DOM: DOM$,
